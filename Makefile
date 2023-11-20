@@ -44,4 +44,5 @@ dbup: dbmate
 	$(DBMATE) up
 
 test:
+	go clean -testcache
 	go test -v ./...

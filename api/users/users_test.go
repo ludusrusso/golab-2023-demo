@@ -30,7 +30,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logrus.Fatalf("Could not init database: %s", err)
 	}
-	defer purge()
 
 	db, err := pgxpool.New(context.Background(), connString)
 	if err != nil {
@@ -83,7 +82,7 @@ func TestListEmptyUsers(t *testing.T) {
 	assert.Equal(t, int32(0), resp.Msg.Totat)
 }
 
-func TestListAndNavigateUsers(t *testing.T) {
+func TestListUsers(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		createTestUser(t, fmt.Sprintf("test-%d", i))
 	}
