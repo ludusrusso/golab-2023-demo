@@ -22,7 +22,15 @@ func NewUsersServiceServer(q *queries.Queries) c.UsersServiceHandler {
 }
 
 func (s *srv) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
-	user, err := s.q.CreateUser(ctx, req.Msg.Name)
+	labels := req.Msg.Labels
+	if labels == nil {
+		labels = []string{}
+	}
+
+	user, err := s.q.CreateUser(ctx, queries.CreateUserParams{
+		Name:   req.Msg.Name,
+		Labels: labels,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -68,14 +76,15 @@ func (s *srv) GetUser(ctx context.Context, req *connect.Request[v1.GetUserReques
 
 func (s *srv) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
 	users, err := s.q.ListUsers(ctx, queries.ListUsersParams{
-		Offset: req.Msg.Offset,
-		Limit:  req.Msg.Limit,
+		Offset:      req.Msg.Offset,
+		Limit:       req.Msg.Limit,
+		MatchLabels: req.Msg.MatchLabels,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	total, err := s.q.CountUsers(ctx)
+	total, err := s.q.CountUsers(ctx, req.Msg.MatchLabels)
 	if err != nil {
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func TestListEmptyUsers(t *testing.T) {
 
 func TestListUsers(t *testing.T) {
 	for i := 0; i < 20; i++ {
-		createTestUser(t, fmt.Sprintf("test-%d", i))
+		createTestUser(t, fmt.Sprintf("test-%d", i), []string{})
 	}
 
 	ctx := context.Background()
@@ -103,17 +103,40 @@ func TestListUsers(t *testing.T) {
 	assert.Equal(t, 10, len(resp.Msg.Users))
 }
 
+func TestListUsersWithLabels(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		labels := []string{}
+		if i%2 == 0 {
+			labels = append(labels, "index=even")
+		}
+		createTestUser(t, fmt.Sprintf("test-%d", i), labels)
+	}
+
+	ctx := context.Background()
+	req := connect.NewRequest(&v1.ListUsersRequest{
+		Offset:      0,
+		Limit:       10,
+		MatchLabels: []string{"index=even"},
+	})
+
+	resp, err := usersCli.ListUsers(ctx, req)
+	assert.Nil(t, err)
+	assert.Equal(t, int32(10), resp.Msg.Totat)
+	assert.Equal(t, 10, len(resp.Msg.Users))
+}
+
 func TestCreateUser(t *testing.T) {
-	user := createTestUser(t, "test")
+	user := createTestUser(t, "test", []string{})
 	assert.Equal(t, "test", user.Name)
 }
 
-func createTestUser(t *testing.T, name string) *v1.User {
+func createTestUser(t *testing.T, name string, labels []string) *v1.User {
 	t.Helper()
 
 	ctx := context.Background()
 	req := connect.NewRequest(&v1.CreateUserRequest{
-		Name: name,
+		Name:   name,
+		Labels: labels,
 	})
 
 	resp, err := usersCli.CreateUser(ctx, req)
