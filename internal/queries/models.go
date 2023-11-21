@@ -13,4 +13,5 @@ type User struct {
 	Name      string
 	CreatedAt pgtype.Timestamp
 	UpdatedAt pgtype.Timestamp
+	Labels    []string
 }

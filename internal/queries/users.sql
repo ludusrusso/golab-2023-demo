@@ -1,11 +1,14 @@
 -- name: ListUsers :many
-SELECT * FROM users LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+SELECT * FROM users 
+	WHERE @match_labels::VARCHAR[] IS NULL OR labels @> @match_labels
+	LIMIT sqlc.arg('limit') 
+	OFFSET sqlc.arg('offset');
 
 -- name: CountUsers :one
-SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM users WHERE @match_labels::VARCHAR[] IS NULL OR labels @> @match_labels;
 
 -- name: CreateUser :one
-INSERT INTO users (name) VALUES (@name) RETURNING *;
+INSERT INTO users (name, labels) VALUES (@name, @labels) RETURNING *;
 
 -- name: DeleteUser :one
 DELETE FROM users WHERE id = @id RETURNING *;

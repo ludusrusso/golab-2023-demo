@@ -10,34 +10,40 @@ import (
 )
 
 const countUsers = `-- name: CountUsers :one
-SELECT COUNT(*) FROM users
+SELECT COUNT(*) FROM users WHERE $1::VARCHAR[] IS NULL OR labels @> $1
 `
 
-func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countUsers)
+func (q *Queries) CountUsers(ctx context.Context, matchLabels []string) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsers, matchLabels)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (name) VALUES ($1) RETURNING id, name, created_at, updated_at
+INSERT INTO users (name, labels) VALUES ($1, $2) RETURNING id, name, created_at, updated_at, labels
 `
 
-func (q *Queries) CreateUser(ctx context.Context, name string) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, name)
+type CreateUserParams struct {
+	Name   string
+	Labels []string
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Name, arg.Labels)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Labels,
 	)
 	return i, err
 }
 
 const deleteUser = `-- name: DeleteUser :one
-DELETE FROM users WHERE id = $1 RETURNING id, name, created_at, updated_at
+DELETE FROM users WHERE id = $1 RETURNING id, name, created_at, updated_at, labels
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id int32) (User, error) {
@@ -48,12 +54,13 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) (User, error) {
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Labels,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, name, created_at, updated_at FROM users WHERE id = $1 LIMIT 1
+SELECT id, name, created_at, updated_at, labels FROM users WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
@@ -64,21 +71,26 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Labels,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, name, created_at, updated_at FROM users LIMIT $2 OFFSET $1
+SELECT id, name, created_at, updated_at, labels FROM users 
+	WHERE $1::VARCHAR[] IS NULL OR labels @> $1
+	LIMIT $3 
+	OFFSET $2
 `
 
 type ListUsersParams struct {
-	Offset int32
-	Limit  int32
+	MatchLabels []string
+	Offset      int32
+	Limit       int32
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsers, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, listUsers, arg.MatchLabels, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +103,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Labels,
 		); err != nil {
 			return nil, err
 		}
